@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+langchain
+openai
+pinecone-client
+streamlit
+python-dotenv
+pypdf
