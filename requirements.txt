@@ -9,3 +9,5 @@ pypdf
 python-docx
 pandas
 openpyxl
+pinecone
+groq
