@@ -12,6 +12,7 @@ LLM_MODEL = "deepseek-chat"
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_ENV = os.getenv("PINECONE_ENV")
 PINECONE_INDEX = "internal-knowledge-assistant"
+EMBEDDING_DIMENSION: int = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
 
 # Retrieval
 TOP_K = 4
