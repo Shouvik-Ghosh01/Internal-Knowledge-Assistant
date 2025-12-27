@@ -6,3 +6,6 @@ pinecone-client
 streamlit
 python-dotenv
 pypdf
+python-docx
+pandas
+openpyxl
