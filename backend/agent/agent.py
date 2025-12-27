@@ -1,16 +1,20 @@
 from langchain.chat_models import ChatOpenAI
 from langchain.agents import Tool, initialize_agent
-from backend.config import *
+
+from backend.config import (
+    LLM_MODEL,
+    OPENAI_API_KEY,
+    OPENAI_API_BASE,
+)
 from backend.agent.prompts import SYSTEM_PROMPT
 from backend.rag.retriever import retrieve_chunks
 from backend.utils.citation import extract_sources
 from backend.safety.output_filter import is_safe_output
-from backend.safety.llama_guard import is_safe_content
 
 
-# -----------------------------
+# -------------------------------------------------
 # LLM SETUP
-# -----------------------------
+# -------------------------------------------------
 llm = ChatOpenAI(
     model=LLM_MODEL,
     openai_api_key=OPENAI_API_KEY,
@@ -18,74 +22,94 @@ llm = ChatOpenAI(
     temperature=0
 )
 
-# -----------------------------
+
+# -------------------------------------------------
 # RETRIEVER TOOL
-# -----------------------------
-def retriever_tool(query: str):
+# -------------------------------------------------
+def retriever_tool(query: str) -> str:
+    """
+    Tool used by the agent to retrieve relevant internal knowledge.
+    Returns formatted context or the sentinel value 'NO_CONTEXT'.
+    """
+
     results = retrieve_chunks(query)
 
     if not results:
         return "NO_CONTEXT"
 
-    context = ""
+    context_parts = []
     for r in results:
-        context += f"""
+        context_parts.append(
+            f"""
 Source: {r['source']} (Page {r.get('page', 'N/A')})
 Content:
 {r['text']}
-"""
+""".strip()
+        )
 
-    return context
+    return "\n\n".join(context_parts)
 
 
 tools = [
     Tool(
         name="InternalKnowledgeRetriever",
         func=retriever_tool,
-        description="Retrieves internal company documents for answering user queries"
+        description=(
+            "Retrieve relevant internal company documents. "
+            "Use this tool whenever factual or procedural information is required."
+        ),
     )
 ]
 
-# -----------------------------
+
+# -------------------------------------------------
 # AGENT INITIALIZATION
-# -----------------------------
+# -------------------------------------------------
 agent = initialize_agent(
     tools=tools,
     llm=llm,
     agent="zero-shot-react-description",
     verbose=True,
-    system_message=SYSTEM_PROMPT
+    system_message=SYSTEM_PROMPT,
 )
 
-# -----------------------------
+
+# -------------------------------------------------
 # MAIN AGENT EXECUTION
-# -----------------------------
-def run_agent(query: str):
+# -------------------------------------------------
+def run_agent(query: str) -> dict:
+    """
+    Executes the agentic RAG pipeline and returns a grounded response.
+
+    Safety assumptions:
+    - Input validation and prompt-injection detection
+      are already handled BEFORE this function is called.
+    """
+
     response = agent.run(query)
 
-    # ---- No context fallback ----
+    # -------------------------
+    # NO CONTEXT FALLBACK
+    # -------------------------
     if "NO_CONTEXT" in response:
         return {
             "answer": "I don't know based on the available knowledge base.",
-            "sources": []
+            "sources": [],
         }
 
-    # ---- Rule-based output filter ----
+    # -------------------------
+    # OUTPUT SAFETY FILTER
+    # -------------------------
     if not is_safe_output(response):
         return {
             "answer": "Unable to provide a safe answer based on the available information.",
-            "sources": []
+            "sources": [],
         }
 
-    # ---- LLaMA Guard output validation ----
-    if not is_safe_content(response, content_type="assistant_output"):
-        return {
-            "answer": "Response blocked due to safety policy.",
-            "sources": []
-        }
-
-    # ---- Final grounded answer ----
+    # -------------------------
+    # FINAL GROUNDED ANSWER
+    # -------------------------
     return {
         "answer": response,
-        "sources": extract_sources()
+        "sources": extract_sources(),
     }
