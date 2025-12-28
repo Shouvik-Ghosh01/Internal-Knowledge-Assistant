@@ -1,13 +1,44 @@
-fastapi
-uvicorn
-langchain
-openai
-pinecone-client
-streamlit
-python-dotenv
-pypdf
-python-docx
-pandas
-openpyxl
-pinecone
-groq
+# -----------------------------
+# Backend API
+# -----------------------------
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.6.0
+
+# -----------------------------
+# Frontend
+# -----------------------------
+streamlit>=1.32.0
+requests>=2.31.0
+
+# -----------------------------
+# LangChain (STABLE + REQUIRED)
+# -----------------------------
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-openai>=0.1.7
+
+# -----------------------------
+# LLM / OpenAI-compatible SDK
+# -----------------------------
+openai>=1.30.0
+groq>=0.9.0
+
+# -----------------------------
+# Vector Database
+# -----------------------------
+pinecone>=3.0.0
+
+# -----------------------------
+# Document ingestion
+# -----------------------------
+python-docx>=1.1.0
+pandas>=2.2.0
+openpyxl>=3.1.2
+pypdf>=4.0.0
+
+# -----------------------------
+# Utilities
+# -----------------------------
+python-dotenv>=1.0.1
+tqdm>=4.66.0
