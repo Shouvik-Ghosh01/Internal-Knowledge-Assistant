@@ -37,7 +37,7 @@ def get_index():
             dimension=EMBEDDING_DIMENSION,
             metric="cosine",
             spec=ServerlessSpec(
-                cloud="gcp",
+                cloud="aws",
                 region=PINECONE_ENV,
             ),
         )
