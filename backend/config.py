@@ -6,7 +6,7 @@ load_dotenv()
 # -------------------------------------------------
 # LLM CONFIGURATION (DeepSeek - OpenAI compatible)
 # -------------------------------------------------
-OPENAI_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 OPENAI_API_BASE = "https://api.deepseek.com"
 LLM_MODEL = "deepseek-chat"
 
@@ -15,6 +15,7 @@ LLM_MODEL = "deepseek-chat"
 # -------------------------------------------------
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSION: int = 1536
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # -------------------------------------------------
 # PINECONE CONFIGURATION
