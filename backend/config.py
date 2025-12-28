@@ -7,8 +7,8 @@ load_dotenv()
 # LLM CONFIGURATION (DeepSeek - OpenAI compatible)
 # -------------------------------------------------
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-DEEPSEEK_API_KEY = "https://api.deepseek.com"
-LLM_MODEL = "deepseek-chat"
+DEEPSEEK_API_BASE = "https://openrouter.ai/api/v1"
+LLM_MODEL = "deepseek/deepseek-v3.2"
 
 # -------------------------------------------------
 # EMBEDDING CONFIGURATION (1536-dim)

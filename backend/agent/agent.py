@@ -1,10 +1,11 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.agents import Tool, initialize_agent
+from langchain_openai import ChatOpenAI
+from langchain_core.tools import Tool
+from langchain.agents import create_agent
 
 from backend.config import (
     LLM_MODEL,
-    OPENAI_API_KEY,
-    OPENAI_API_BASE,
+    DEEPSEEK_API_KEY,
+    DEEPSEEK_API_BASE,
 )
 from backend.agent.prompts import SYSTEM_PROMPT
 from backend.rag.retriever import retrieve_chunks
@@ -17,8 +18,8 @@ from backend.safety.output_filter import is_safe_output
 # -------------------------------------------------
 llm = ChatOpenAI(
     model=LLM_MODEL,
-    openai_api_key=OPENAI_API_KEY,
-    openai_api_base=OPENAI_API_BASE,
+    api_key=DEEPSEEK_API_KEY,
+    api_base=DEEPSEEK_API_BASE,
     temperature=0
 )
 
@@ -65,12 +66,9 @@ tools = [
 # -------------------------------------------------
 # AGENT INITIALIZATION
 # -------------------------------------------------
-agent = initialize_agent(
-    tools=tools,
-    llm=llm,
-    agent="zero-shot-react-description",
-    verbose=True,
-    system_message=SYSTEM_PROMPT,
+agent = create_agent(
+    model=llm,
+    tools=tools
 )
 
 
