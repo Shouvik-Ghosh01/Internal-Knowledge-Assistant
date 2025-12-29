@@ -30,8 +30,12 @@ def internal_knowledge_retriever(query: str) -> str:
     Retrieve relevant internal company documents.
     Returns formatted context or 'NO_CONTEXT'.
     """
-
+    print("\n[TOOL CALLED]")
+    print("Query:", query)
+    
     results = retrieve_chunks(query)            #################################### idhar se retriever dekhna hei 
+    
+    print("Retrieved chunks:", len(results))
 
     if not results:
         return "NO_CONTEXT"
