@@ -29,7 +29,7 @@ PINECONE_INDEX = "internal-knowledge-assistant"
 # RETRIEVAL CONFIGURATION
 # -------------------------------------------------
 TOP_K = 4
-SIMILARITY_THRESHOLD = 0.75
+SIMILARITY_THRESHOLD = 0.0
 
 # Pinecone namespaces (one per doc type).
 #
