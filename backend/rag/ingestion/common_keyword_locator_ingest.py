@@ -254,20 +254,23 @@ def ingest_common_keyword_locators(
 		for offset, (chunk, embedding) in enumerate(zip(batch_chunks, embeddings)):
 			# Stable-ish chunk id derived from file name + row index.
 			chunk_id = f"locators::{Path(str(xlsx_path)).name}::{start + offset}"
+			# Pinecone metadata values cannot be null; drop any None/empty values.
+			meta = {
+				# 'text' is the retrievable content.
+				"text": chunk.text,
+				# 'source' and 'page' help show citations and debug retrieval.
+				"source": chunk.source,
+				"page": chunk.page,
+				# Optional structured fields (nice for future filtering).
+				"locator": chunk.locator_name,
+				"keyword": chunk.keyword,
+			}
+			meta = {k: v for k, v in meta.items() if v is not None and v != ""}
 			vectors.append(
 				(
 					chunk_id,
 					embedding,
-					{
-						# 'text' is the retrievable content.
-						"text": chunk.text,
-						# 'source' and 'page' help show citations and debug retrieval.
-						"source": chunk.source,
-						"page": chunk.page,
-						# Optional structured fields (nice for future filtering).
-						"locator": chunk.locator_name,
-						"keyword": chunk.keyword,
-					},
+					meta,
 				)
 			)
 

@@ -238,17 +238,20 @@ def ingest_validation_checklist(
 		vectors = []
 		for offset, (chunk, embedding) in enumerate(zip(batch_chunks, embeddings)):
 			chunk_id = f"validation::{Path(str(xlsx_path)).name}::{start + offset}"
+			# Pinecone metadata values cannot be null; drop any None/empty values.
+			meta = {
+				"text": chunk.text,
+				"source": chunk.source,
+				"page": chunk.page,
+				"module": chunk.module,
+				"rule": chunk.rule,
+			}
+			meta = {k: v for k, v in meta.items() if v is not None and v != ""}
 			vectors.append(
 				(
 					chunk_id,
 					embedding,
-					{
-						"text": chunk.text,
-						"source": chunk.source,
-						"page": chunk.page,
-						"module": chunk.module,
-						"rule": chunk.rule,
-					},
+					meta,
 				)
 			)
 
