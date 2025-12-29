@@ -94,19 +94,61 @@ def build_locator_chunks(xlsx_path: str | Path) -> list[LocatorChunk]:
 		# Column mapping:
 		# The cleaned file should have Locator/Keyword/Code/Description, but in case
 		# names differ slightly, we accept common aliases.
+		#
+		# NOTE: The provided workbook contains multiple sheets (e.g. Common_Keywords,
+		# Keywords, Common_Locators) with different header names. That's why the
+		# alias list below is intentionally broad.
 
+		# This Excel has multiple sheets with different headers (e.g. Common_Keywords, Common_Locators).
+		# So we match a wider set of aliases.
 		locator_col = _pick_col(
 			table.columns,
-			["locator", "locator name", "element", "name"],
+			[
+				"locator",
+				"locator name",
+				"label of locators",
+				"element",
+				"name",
+			],
 		)
-		keyword_col = _pick_col(table.columns, ["keyword", "key", "token"])
+		keyword_col = _pick_col(
+			table.columns,
+			[
+				"keyword",
+				"keywords",
+				"keyword names",
+				"key",
+				"token",
+			],
+		)
 		code_col = _pick_col(
 			table.columns,
-			["code", "xpath", "css", "selector", "id"],
+			[
+				"code",
+				"code snippet",
+				"function of keyword / example usage",
+				"function of  keyword / example usage",
+				"path of loactors",
+				"path of locators",
+				"path",
+				"xpath",
+				"css",
+				"selector",
+				"id",
+			],
 		)
 		desc_col = _pick_col(
 			table.columns,
-			["description", "desc", "remarks", "notes"],
+			[
+				"description",
+				"desc",
+				"purpose of locators",
+				"purpose of keyword",
+				"purpose of keywords",
+				"purpose",
+				"remarks",
+				"notes",
+			],
 		)
 
 		for _, row in table.iterrows():
@@ -116,13 +158,30 @@ def build_locator_chunks(xlsx_path: str | Path) -> list[LocatorChunk]:
 			code = _norm_text(row[code_col]) if code_col else ""
 			description = _norm_text(row[desc_col]) if desc_col else ""
 
+			# Fallback: if we couldn't map the columns well, still create a chunk
+			# from any non-empty cells in the row (keeps ingestion resilient to header variations).
+			#
+			# This prevents the "0 chunks" issue when the Excel headers don't match our
+			# expected names but the sheet still contains meaningful text.
+			if not (locator_name or keyword or code or description):
+				fallback_lines: list[str] = []
+				for c in table.columns:
+					v = _norm_text(row.get(c))
+					if v:
+						fallback_lines.append(f"{c}: {v}")
+				if fallback_lines:
+					code = "\n".join(fallback_lines)
+
 			if not (locator_name or keyword or code or description):
 				continue
 
 			# Prefer at least locator/keyword to avoid embedding pure noise.
 			# This keeps our vectors meaningful for retrieval.
 			if not (locator_name or keyword):
-				continue
+				# If we only have fallback content (e.g., a row of notes), keep it only
+				# when it looks non-trivial.
+				if not code or len(code) < 10:
+					continue
 
 			chunk_text = (
 				"\n".join(

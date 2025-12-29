@@ -88,11 +88,16 @@ def build_validation_chunks(xlsx_path: str | Path) -> list[ValidationChunk]:
 			continue
 
 		# Column mapping:
-		# Your reference expects Rule / Module / Expected / Failure.
-		# We accept common aliases so minor header differences won't break ingestion.
-		rule_col = _pick_col(table.columns, ["rule", "validation rule", "check", "scenario"]) 
+		# The validation workbook often has many "narrative" / checklist sheets where
+		# headers don't match a single structured table.
+		#
+		# Strategy:
+		# - Try best-effort mapping to {rule/module/expected/failure/...}
+		# - If those columns don't exist, fall back to a generic row chunk:
+		#   "Column: Value" lines for any non-empty cells.
+		rule_col = _pick_col(table.columns, ["rule", "validation rule", "check", "scenario", "step", "steps"]) 
 		module_col = _pick_col(table.columns, ["module", "screen", "section", "applies to"]) 
-		expected_col = _pick_col(table.columns, ["expected", "expected result", "expected output"]) 
+		expected_col = _pick_col(table.columns, ["expected", "expected result", "expected output", "expected outcome"]) 
 		failure_col = _pick_col(table.columns, ["failure", "failure message", "message", "error message"]) 
 		condition_col = _pick_col(table.columns, ["condition", "criteria", "when", "if"]) 
 		severity_col = _pick_col(table.columns, ["severity", "priority", "p1/p2", "impact"]) 
@@ -103,6 +108,10 @@ def build_validation_chunks(xlsx_path: str | Path) -> list[ValidationChunk]:
 		if ffill_cols:
 			table[ffill_cols] = table[ffill_cols].ffill()
 
+		# If none of these key columns exist, treat each row as generic content.
+		# This is what fixes the "0 chunks" issue for sheets like "Verifying ...".
+		has_structured_cols = any([rule_col, expected_col, failure_col, condition_col, severity_col, module_col])
+
 		for row_idx, row in table.iterrows():
 			rule = _norm_text(row[rule_col]) if rule_col else ""
 			module = _norm_text(row[module_col]) if module_col else ""
@@ -110,6 +119,46 @@ def build_validation_chunks(xlsx_path: str | Path) -> list[ValidationChunk]:
 			failure = _norm_text(row[failure_col]) if failure_col else ""
 			condition = _norm_text(row[condition_col]) if condition_col else ""
 			severity = _norm_text(row[severity_col]) if severity_col else ""
+
+			# Generic fallback: turn any non-empty row into a chunk of "Column: Value" lines.
+			# This ensures we still ingest useful content for sheets like "Verifying ...".
+			if not has_structured_cols:
+				row_lines: list[str] = []
+				for c in table.columns:
+					v = _norm_text(row.get(c))
+					if v:
+						row_lines.append(f"{c}: {v}")
+				if not row_lines:
+					continue
+
+				chunk_text = (
+					"\n".join(
+						[
+							"Document Type: Validation Checklist",
+							f"Sheet: {sheet_name}",
+							f"Row: {row_idx + 1}",
+						]
+					)
+					+ "\n"
+					+ "\n".join(row_lines).strip()
+					+ "\n"
+				)
+
+				signature = " ".join(chunk_text.lower().split())
+				if signature in seen:
+					continue
+				seen.add(signature)
+
+				chunks.append(
+					ValidationChunk(
+						text=chunk_text,
+						source=str(path.as_posix()),
+						page=str(sheet_name),
+						module=(module or sheet_name) or None,
+						rule=None,
+					)
+				)
+				continue
 
 			# Skip rows that don't contain a meaningful rule.
 			# We require at least a rule OR an expected result.

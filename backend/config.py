@@ -30,3 +30,23 @@ PINECONE_INDEX = "internal-knowledge-assistant"
 # -------------------------------------------------
 TOP_K = 4
 SIMILARITY_THRESHOLD = 0.75
+
+# Pinecone namespaces (one per doc type).
+#
+# We keep these as simple strings so:
+# - ingestion can upsert into a predictable namespace
+# - retrieval can query across all namespaces
+# - the app can be extended with new doc-types by adding a constant here
+NAMESPACE_LOCATORS = "locators"
+NAMESPACE_VALIDATION = "validation"
+NAMESPACE_PR_REVIEW = "pr_review"
+NAMESPACE_SOP = "sop"
+
+# List of namespaces that the retriever queries.
+# If you add a new namespace above, also add it here.
+ALL_NAMESPACES = [
+	NAMESPACE_LOCATORS,
+	NAMESPACE_VALIDATION,
+	NAMESPACE_PR_REVIEW,
+	NAMESPACE_SOP,
+]
