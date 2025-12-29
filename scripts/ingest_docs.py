@@ -49,15 +49,17 @@ def ingest_pdf(path: str | Path, *, namespace: str, batch_size: int = 64) -> int
 
         vectors = []
         for c, e in zip(batch_chunks, embeds):
+            meta = {
+                "text": c.page_content,
+                "source": c.metadata.get("source"),
+                "page": c.metadata.get("page"),
+            }
+            meta = {k: v for k, v in meta.items() if v is not None and v != ""}
             vectors.append(
                 (
                     str(uuid.uuid4()),
                     e,
-                    {
-                        "text": c.page_content,
-                        "source": c.metadata.get("source"),
-                        "page": c.metadata.get("page"),
-                    },
+                    meta,
                 )
             )
 
