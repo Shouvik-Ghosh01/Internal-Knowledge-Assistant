@@ -79,7 +79,7 @@ def run_agent(query: str) -> dict:
 
     if "NO_CONTEXT" in final_message:
         return {
-            "answer": final_message,
+            "answer": "I don't know based on the available knowledge base.",
             "sources": [],
         }
 
@@ -88,8 +88,9 @@ def run_agent(query: str) -> dict:
             "answer": "Unable to provide a safe answer based on the available information.",
             "sources": [],
         }
-
+    
+    final_answer, source_extracted= extract_sources(final_message)
     return {
-        "answer": final_message,
-        "sources": extract_sources(),
+        "answer": final_answer,
+        "sources": source_extracted,
     }
