@@ -22,7 +22,7 @@ def is_prompt_safe(text: str) -> bool:
                 "content": text
             }
         ],
-        temperature=0
+        temperature=0.5
     )
 
     verdict = response.choices[0].message.content.strip().lower()

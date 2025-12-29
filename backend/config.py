@@ -8,7 +8,7 @@ load_dotenv()
 # -------------------------------------------------
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_API_BASE = "https://openrouter.ai/api/v1"
-LLM_MODEL = "deepseek/deepseek-v3.2"
+LLM_MODEL = "gpt-5-nano-2025-08-07"
 
 # -------------------------------------------------
 # EMBEDDING CONFIGURATION (1536-dim)

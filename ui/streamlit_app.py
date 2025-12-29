@@ -11,8 +11,7 @@ if st.button("Submit") and query:
     try:
         res = requests.post(
             API_URL,
-            json={"query": query},  # ✅ JSON body
-            timeout=30
+            json={"query": query}  # ✅ JSON body
         )
         data = res.json()
         print(data)
