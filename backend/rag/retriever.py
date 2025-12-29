@@ -4,7 +4,17 @@ from backend.config import ALL_NAMESPACES, TOP_K, SIMILARITY_THRESHOLD
 
 index = get_index()
 
-def retrieve_chunks(query: str):
+
+def retrieve_chunks(query: str) -> list[dict]:
+    """
+    Retrieves relevant document chunks from Pinecone using vector similarity.
+
+    Returns:
+        List of chunks with text, source, and page metadata.
+        Returns an empty list if no relevant chunks meet the similarity threshold.
+    """
+
+    # Convert query to embedding
     q_embed = embed_texts([query])[0]
 
     # We query the same vector across multiple namespaces (doc types) and then
