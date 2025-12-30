@@ -30,55 +30,40 @@ def _norm_text(value: Any) -> str:
 	return " ".join(s.replace("\r", " ").replace("\n", " ").split()).strip()
 
 
-def build_pr_review_chunks(doc_path: str | Path) -> list[PRReviewChunk]:
-	"""Convert a PR review DOCX into paragraph-level chunks."""
+def build_pr_review_chunks(doc_path: str | Path, group_size: int = 3) -> list[PRReviewChunk]:
+    from docx import Document
 
-	try:
-		from docx import Document
-	except Exception as exc:  # pragma: no cover
-		raise RuntimeError(
-			"python-docx is required to ingest .docx files. Install with `pip install python-docx`."
-		) from exc
+    path = Path(doc_path)
+    if not path.exists():
+        return []
 
-	path = Path(doc_path)
-	if not path.exists():
-		return []
+    doc = Document(str(path))
+    paragraphs = [
+        _norm_text(p.text) for p in doc.paragraphs if _norm_text(p.text)
+    ]
 
-	doc = Document(str(path))
-	chunks: list[PRReviewChunk] = []
-	seen: set[str] = set()
+    chunks = []
+    step = 0
 
-	for i, para in enumerate(doc.paragraphs):
-		text = _norm_text(getattr(para, "text", ""))
-		if not text:
-			continue
+    for i in range(0, len(paragraphs), group_size):
+        group = paragraphs[i : i + group_size]
+        step += 1
 
-		chunk_text = (
-			"\n".join(
-				[
-					"Document Type: PR Review Checklist",
-					f"Checklist Item {i + 1}:",
-					text,
-				]
-			).strip()
-			+ "\n"
-		)
+        chunk_text = (
+            "Document Type: PR Review Checklist\n"
+            f"Checklist Group {step}:\n"
+            + "\n".join(f"- {g}" for g in group)
+        )
 
-		signature = " ".join(chunk_text.lower().split())
-		if signature in seen:
-			continue
-		seen.add(signature)
+        chunks.append(
+            PRReviewChunk(
+                text=chunk_text,
+                source=str(path.as_posix()),
+                page=str(step),
+            )
+        )
 
-		chunks.append(
-			PRReviewChunk(
-				text=chunk_text,
-				source=str(path.as_posix()),
-				page=str(i + 1),
-			)
-		)
-
-	return chunks
-
+    return chunks
 
 def ingest_pr_review(
 	doc_path: str | Path = Path("data") / "pr_review" / "PR Review Checklist.docx",

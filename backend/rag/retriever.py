@@ -1,69 +1,72 @@
 from backend.rag.embeddings import embed_texts
 from backend.rag.pinecone_client import get_index
-from backend.config import ALL_NAMESPACES, TOP_K, SIMILARITY_THRESHOLD
+from backend.config import ALL_NAMESPACES, TOP_K
 from backend.utils.retrieval_context import set_last_retrieved_chunks
+from backend.rag.namespace_router import pick_namespaces
 
 index = get_index()
 
+MIN_ABSOLUTE_SCORE = 0.45
+RELATIVE_DROP = 0.15  # keep chunks close to best score
+
 
 def retrieve_chunks(query: str) -> list[dict]:
-    """
-    Retrieves relevant document chunks from Pinecone using vector similarity.
-
-    Returns:
-        List of chunks with text, source, and page metadata.
-        Returns an empty list if no relevant chunks meet the similarity threshold.
-    """
-
-    # Convert query to embedding
     q_embed = embed_texts([query])[0]
 
-    # We query the same vector across multiple namespaces (doc types) and then
-    # merge results.
     matches = []
-    for ns in ALL_NAMESPACES:
+
+    namespaces = pick_namespaces(query, ALL_NAMESPACES)
+    for ns in namespaces:
         res = index.query(
             vector=q_embed,
             top_k=TOP_K,
             include_metadata=True,
             namespace=ns,
         )
+
         for m in getattr(res, "matches", []) or []:
-            if m.score >= SIMILARITY_THRESHOLD:
-                md = m.metadata or {}
-                matches.append(
-                    {
-                        "score": float(m.score),
-                        "text": md.get("text", ""),
-                        "source": md.get("source"),
-                        "page": md.get("page"),
-                        "namespace": ns,
-                    }
-                )
+            md = m.metadata or {}
+            matches.append(
+                {
+                    "score": float(m.score),
+                    "text": md.get("text", ""),
+                    "source": md.get("source"),
+                    "page": md.get("page"),
+                    "namespace": ns,
+                }
+            )
 
-    # Sort globally and keep TOP_K overall.
-    # (Example: if TOP_K=4, we return the best 4 matches across ALL namespaces.)
+    if not matches:
+        set_last_retrieved_chunks([])
+        return []
+
+    # Sort by score
     matches.sort(key=lambda x: x["score"], reverse=True)
+    best_score = matches[0]["score"]
 
-    chunks = []
+    # Dynamic filtering
+    filtered = []
     seen = set()
+
     for item in matches:
-        # De-dupe identical content across namespaces/sheets/pages.
-        sig = (item.get("source"), item.get("page"), " ".join((item.get("text") or "").split()).lower())
+        if item["score"] < MIN_ABSOLUTE_SCORE:
+            continue
+        if (best_score - item["score"]) > RELATIVE_DROP:
+            continue
+
+        sig = (
+            item.get("source"),
+            item.get("page"),
+            " ".join((item.get("text") or "").split()).lower(),
+        )
         if sig in seen:
             continue
         seen.add(sig)
-        chunks.append(
-            {
-                "text": item["text"],
-                "source": item["source"],
-                "page": item.get("page"),
-                "namespace": item.get("namespace"),
-                "score": item.get("score"),
-            }
-        )
-        if len(chunks) >= TOP_K:
+
+        filtered.append(item)
+
+        if len(filtered) >= 5:  # final context size
             break
 
-    set_last_retrieved_chunks(chunks)
-    return chunks
+    set_last_retrieved_chunks(filtered)
+    return filtered
