@@ -9,7 +9,6 @@ STRICT RULES:
 - If the retrieved context does not contain the answer, respond EXACTLY with:
   "I don't know based on the available knowledge base."
 - Do NOT speculate or infer missing information.
-- Always include source citations when an answer is provided.
 - If the retrieved document is a checklist or SOP, answer in clear bullet points.
 - The final answer must be grounded entirely in the retrieved content.
 """
