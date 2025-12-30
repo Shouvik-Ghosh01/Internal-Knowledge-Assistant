@@ -1,6 +1,6 @@
 from __future__ import annotations
 from backend.config import *
-import os
+import os, time
 from functools import lru_cache
 from typing import Optional
 
@@ -41,5 +41,8 @@ def get_index():
                 region=PINECONE_ENV,
             ),
         )
+        # wait for index to be ready
+        while not pc.describe_index(PINECONE_INDEX).status['ready']:
+            time.sleep(1)
 
     return pc.Index(PINECONE_INDEX)
