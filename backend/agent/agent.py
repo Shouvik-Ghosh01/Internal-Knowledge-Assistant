@@ -17,7 +17,7 @@ llm = ChatOpenAI(
     model=LLM_MODEL,
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_API_BASE,
-    temperature=0.8,
+    temperature=0.5,
 )
 
 
@@ -31,7 +31,7 @@ def internal_knowledge_retriever(query: str) -> str:
     Returns formatted context or 'NO_CONTEXT'.
     """
 
-    results = retrieve_chunks(query)            #################################### idhar se retriever dekhna hei 
+    results = retrieve_chunks(query)
 
     if not results:
         return "NO_CONTEXT"
