@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from requests.exceptions import ConnectionError, Timeout
 
-API_URL = "http://127.0.0.1:8000/ask"
+API_URL = "https://internal-knowledge-assistant-9v2j.onrender.com/ask"
 
 # -------------------------------
 # PAGE CONFIG
