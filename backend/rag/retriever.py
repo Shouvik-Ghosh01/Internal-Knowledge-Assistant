@@ -1,6 +1,7 @@
 from backend.rag.embeddings import embed_texts
 from backend.rag.pinecone_client import get_index
 from backend.config import ALL_NAMESPACES, TOP_K, SIMILARITY_THRESHOLD
+from backend.utils.retrieval_context import set_last_retrieved_chunks
 
 index = get_index()
 
@@ -64,4 +65,5 @@ def retrieve_chunks(query: str) -> list[dict]:
         if len(chunks) >= TOP_K:
             break
 
+    set_last_retrieved_chunks(chunks)
     return chunks
