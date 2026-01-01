@@ -13,7 +13,7 @@ st.set_page_config(
     # Browser tab title
     page_title="Spotline Knowledge Assistant",
     page_icon="📘",
-        layout="wide",
+    layout="wide",
 )
 
 # Hero header (modern, theme-aware). Keeps the app readable on wide screens.
@@ -32,10 +32,12 @@ st.markdown(
                 border-radius: 18px;
                 padding: 14px 16px;
                 margin-bottom: 0.75rem;
+                overflow-wrap: anywhere;
+                word-break: break-word;
             }
             .ska-hero h1 {
                 margin: 0;
-                font-size: 1.65rem;
+                font-size: clamp(1.25rem, 2vw + 0.75rem, 1.65rem);
                 line-height: 1.25;
             }
             .ska-muted {
@@ -55,6 +57,25 @@ st.markdown(
                 border-radius: 14px;
                 padding: 10px 12px;
                 margin-bottom: 0.75rem;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+
+            /* Responsive tweaks for smaller screens */
+            @media (max-width: 768px) {
+                .block-container {
+                    max-width: 100%;
+                    padding-top: 0.75rem;
+                    padding-left: 1rem;
+                    padding-right: 1rem;
+                }
+                .ska-hero {
+                    padding: 12px 12px;
+                    border-radius: 16px;
+                }
+                .ska-small {
+                    font-size: 0.88rem;
+                }
             }
         </style>
         """,
@@ -101,6 +122,8 @@ st.markdown(
                 margin: 6px 0 !important;
                 background: var(--ska-bubble-bg) !important;
                 animation: ska-bubble-in 160ms ease-out;
+                overflow-wrap: anywhere;
+                word-break: break-word;
             }
 
             /* Reduce extra vertical whitespace inside bubble */
@@ -113,6 +136,13 @@ st.markdown(
             div[data-testid="stChatMessage"] small,
             div[data-testid="stChatMessageContent"] small {
                 opacity: 0.85 !important;
+            }
+
+            @media (max-width: 768px) {
+                div[data-testid="stChatMessageContent"] {
+                    padding: 10px 12px !important;
+                    border-radius: 16px !important;
+                }
             }
         </style>
         """,
