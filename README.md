@@ -132,7 +132,7 @@ Fill in:
 
 * `OPENAI_API_KEY`
 * `PINECONE_API_KEY`
-* * `GROQ_API_KEY`
+* `GROQ_API_KEY`
 * `PINECONE_ENV`
 
 ---
