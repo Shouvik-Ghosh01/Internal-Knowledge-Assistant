@@ -2,138 +2,151 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, List
 
 
 @dataclass(frozen=True)
 class SOPChunk:
-	"""A single SOP chunk.
-
-	`text` is what we embed/store.
-	`source` is the doc path (for citations/debugging).
-	`page` is the step/paragraph index (1-based) since DOCX isn't paginated.
-	"""
-
-	text: str
-	source: str
-	page: str | None
+    text: str
+    source: str
+    page: str | None
 
 
 def _norm_text(value: Any) -> str:
-	"""Normalize paragraph text into a clean single-line string."""
+    if value is None:
+        return ""
+    s = str(value)
+    if s.lower() in {"nan", "none"}:
+        return ""
+    return " ".join(s.replace("\r", " ").replace("\n", " ").split()).strip()
 
-	if value is None:
-		return ""
-	s = str(value)
-	if s.lower() in {"nan", "none"}:
-		return ""
-	return " ".join(s.replace("\r", " ").replace("\n", " ").split()).strip()
+
+def _is_heading(para) -> bool:
+    """
+    Heuristic heading detection:
+    - Word style starts with 'Heading'
+    - OR short uppercase lines
+    """
+    style = getattr(para.style, "name", "").lower()
+    text = para.text.strip()
+
+    if style.startswith("heading"):
+        return True
+
+    if text.isupper() and len(text.split()) <= 6:
+        return True
+
+    return False
 
 
 def build_sop_chunks(doc_path: str | Path) -> list[SOPChunk]:
-	"""Convert an SOP DOCX into paragraph-level step chunks."""
+    from docx import Document
 
-	try:
-		from docx import Document
-	except Exception as exc:  # pragma: no cover
-		raise RuntimeError(
-			"python-docx is required to ingest .docx files. Install with `pip install python-docx`."
-		) from exc
+    path = Path(doc_path)
+    if not path.exists():
+        return []
 
-	path = Path(doc_path)
-	if not path.exists():
-		return []
+    doc = Document(str(path))
 
-	doc = Document(str(path))
-	chunks: list[SOPChunk] = []
-	seen: set[str] = set()
-	step = 0
+    chunks: list[SOPChunk] = []
+    seen: set[str] = set()
 
-	for para in doc.paragraphs:
-		text = _norm_text(getattr(para, "text", ""))
-		if not text:
-			continue
+    current_heading = "General"
+    buffer: List[str] = []
+    section_index = 0
 
-		step += 1
-		chunk_text = (
-			"\n".join(
-				[
-					"Document Type: SOP / Guidelines",
-					f"Step {step}:",
-					text,
-				]
-			).strip()
-			+ "\n"
-		)
+    def flush_buffer():
+        nonlocal section_index, buffer
 
-		# Deduplicate after normalization to reduce repeated vectors.
-		signature = " ".join(chunk_text.lower().split())
-		if signature in seen:
-			continue
-		seen.add(signature)
+        if not buffer:
+            return
 
-		chunks.append(
-			SOPChunk(
-				text=chunk_text,
-				source=str(path.as_posix()),
-				page=str(step),
-			)
-		)
+        section_index += 1
+        body = " ".join(buffer)
+        buffer = []
 
-	return chunks
+        chunk_text = (
+            "Document Type: SOP / Guidelines\n"
+            f"Section: {current_heading}\n"
+            f"{body}\n"
+        )
+
+        signature = " ".join(chunk_text.lower().split())
+        if signature in seen:
+            return
+        seen.add(signature)
+
+        chunks.append(
+            SOPChunk(
+                text=chunk_text,
+                source=str(path.as_posix()),
+                page=str(section_index),
+            )
+        )
+
+    for para in doc.paragraphs:
+        text = _norm_text(para.text)
+        if not text:
+            continue
+
+        if _is_heading(para):
+            # Finish previous section
+            flush_buffer()
+            current_heading = text
+            continue
+
+        buffer.append(text)
+
+        # Flush when chunk reaches semantic size
+        if len(" ".join(buffer)) >= 600:
+            flush_buffer()
+
+    # Flush remaining content
+    flush_buffer()
+
+    return chunks
 
 
 def ingest_sop(
-	doc_path: str | Path = Path("data") / "guidelines" / "Standard Operating procedure.docx",
-	*,
-	namespace: str | None = None,
-	batch_size: int = 64,
+    doc_path: str | Path = Path("data") / "guidelines" / "Standard Operating procedure.docx",
+    *,
+    namespace: str | None = None,
+    batch_size: int = 64,
 ) -> int:
-	"""Reads the SOP docx and upserts vectors to Pinecone.
+    from backend.rag.embeddings import embed_texts
+    from backend.rag.pinecone_client import get_index
 
-	Pipeline:
-	1) Build step chunks from DOCX paragraphs (`build_sop_chunks`)
-	2) Embed chunk text via `embed_texts`
-	3) Upsert vectors to Pinecone index (`get_index().upsert`)
-	"""
+    chunks = build_sop_chunks(doc_path)
+    if not chunks:
+        return 0
 
-	from backend.rag.embeddings import embed_texts
-	from backend.rag.pinecone_client import get_index
+    index = get_index()
+    upserted = 0
 
-	chunks = build_sop_chunks(doc_path)
-	if not chunks:
-		return 0
+    for start in range(0, len(chunks), batch_size):
+        batch = chunks[start : start + batch_size]
+        texts = [c.text for c in batch]
+        embeddings = embed_texts(texts)
 
-	index = get_index()
-	upserted = 0
-	chunk_texts = [c.text for c in chunks]
+        vectors = []
+        for offset, (chunk, emb) in enumerate(zip(batch, embeddings)):
+            vectors.append(
+                (
+                    f"sop::{Path(doc_path).name}::{start + offset}",
+                    emb,
+                    {
+                        "text": chunk.text,
+                        "source": chunk.source,
+                        "page": chunk.page,
+                    },
+                )
+            )
 
-	# Batch embeddings to keep requests reasonably sized.
-	for start in range(0, len(chunks), max(1, batch_size)):
-		batch_chunks = chunks[start : start + batch_size]
-		batch_texts = chunk_texts[start : start + batch_size]
-		embeddings = embed_texts(batch_texts)
+        if namespace:
+            index.upsert(vectors=vectors, namespace=namespace)
+        else:
+            index.upsert(vectors=vectors)
 
-		# Pinecone vector tuple format: (id, values, metadata)
-		vectors = []
-		for offset, (chunk, embedding) in enumerate(zip(batch_chunks, embeddings)):
-			chunk_id = f"sop::{Path(str(doc_path)).name}::{start + offset}"
-			vectors.append(
-				(
-					chunk_id,
-					embedding,
-					{
-						"text": chunk.text,
-						"source": chunk.source,
-						"page": chunk.page,
-					},
-				)
-			)
+        upserted += len(vectors)
 
-		if namespace:
-			index.upsert(vectors=vectors, namespace=namespace)
-		else:
-			index.upsert(vectors=vectors)
-		upserted += len(vectors)
-
-	return upserted
+    return upserted
