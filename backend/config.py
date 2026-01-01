@@ -38,6 +38,7 @@ NAMESPACE_LOCATORS = "locators"
 NAMESPACE_VALIDATION = "validation"
 NAMESPACE_PR_REVIEW = "pr_review"
 NAMESPACE_SOP = "sop"
+NAMESPACE_COMPANY = "company_profile"
 
 # List of namespaces that the retriever queries.
 # If you add a new namespace above, also add it here.
@@ -45,5 +46,6 @@ ALL_NAMESPACES = [
 	NAMESPACE_LOCATORS,
 	NAMESPACE_VALIDATION,
 	NAMESPACE_PR_REVIEW,
+    NAMESPACE_COMPANY,
 	NAMESPACE_SOP,
 ]

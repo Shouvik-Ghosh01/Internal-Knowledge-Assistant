@@ -1,16 +1,25 @@
 def pick_namespaces(query: str, all_namespaces: list[str]) -> list[str]:
     q = query.lower()
 
-    if "pr" in q or "review" in q:
-        return ["pr_review"]
+    selected = set()
 
-    if "validation" in q or "error" in q or "rule" in q:
-        return ["validation"]
+    if any(k in q for k in ["spotline", "company", "about", "overview"]):
+        selected.add("company_profile")
 
-    if "locator" in q or "xpath" in q or "css" in q:
-        return ["locators"]
+    if any(k in q for k in ["pr", "pull request", "review"]):
+        selected.add("pr_review")
 
-    if "sop" in q or "onboarding" in q or "procedure" in q:
-        return ["fresher_sop"]
+    if any(k in q for k in ["sop", "onboarding", "procedure", "guideline"]):
+        selected.add("sop")
 
-    return all_namespaces
+    if any(k in q for k in ["validation", "checklist", "rules"]):
+        selected.add("validation")
+
+    if any(k in q for k in ["locator", "xpath", "selector", "ui"]):
+        selected.add("locators")
+
+    # Fallback: search everything
+    if not selected:
+        return all_namespaces
+
+    return list(selected)

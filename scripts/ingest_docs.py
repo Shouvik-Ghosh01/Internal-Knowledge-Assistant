@@ -10,23 +10,13 @@ from backend.config import (
     NAMESPACE_PR_REVIEW,
     NAMESPACE_SOP,
     NAMESPACE_VALIDATION,
+    NAMESPACE_COMPANY,
 )
 
-# Simple ingestion runner.
-#
-# Usage examples:
-#   python scripts/ingest_docs.py                # ingest all 4 doc types
-#   python scripts/ingest_docs.py --locators     # only locators
-#   python scripts/ingest_docs.py --validation   # only validation
-#   python scripts/ingest_docs.py --pr-review --sop
-#
-# Note: Make sure your env vars are set (see backend/config.py):
-#   DEEPSEEK_API_KEY, PINECONE_API_KEY, PINECONE_ENV
-
-
+# -------------------------------------------------
+# OPTIONAL PDF INGESTION (generic utility)
+# -------------------------------------------------
 def ingest_pdf(path: str | Path, *, namespace: str, batch_size: int = 64) -> int:
-    """Optional: Ingest a PDF via LangChain loader + chunker."""
-
     from langchain.document_loaders import PyPDFLoader
 
     from backend.rag.chunking import chunk_documents
@@ -40,9 +30,9 @@ def ingest_pdf(path: str | Path, *, namespace: str, batch_size: int = 64) -> int
 
     texts = [c.page_content for c in chunks]
     index = get_index()
-
     upserted = 0
-    for start in range(0, len(texts), max(1, batch_size)):
+
+    for start in range(0, len(texts), batch_size):
         batch_chunks = chunks[start : start + batch_size]
         batch_texts = texts[start : start + batch_size]
         embeds = embed_texts(batch_texts)
@@ -54,14 +44,8 @@ def ingest_pdf(path: str | Path, *, namespace: str, batch_size: int = 64) -> int
                 "source": c.metadata.get("source"),
                 "page": c.metadata.get("page"),
             }
-            meta = {k: v for k, v in meta.items() if v is not None and v != ""}
-            vectors.append(
-                (
-                    str(uuid.uuid4()),
-                    e,
-                    meta,
-                )
-            )
+            meta = {k: v for k, v in meta.items() if v}
+            vectors.append((str(uuid.uuid4()), e, meta))
 
         index.upsert(vectors=vectors, namespace=namespace)
         upserted += len(vectors)
@@ -69,38 +53,56 @@ def ingest_pdf(path: str | Path, *, namespace: str, batch_size: int = 64) -> int
     return upserted
 
 
+# -------------------------------------------------
+# MAIN INGESTION RUNNER
+# -------------------------------------------------
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Ingest Internal Knowledge Assistant docs into Pinecone")
-    parser.add_argument("--batch-size", type=int, default=64, help="Embedding/upsert batch size")
+    parser = argparse.ArgumentParser(
+        description="Ingest Internal Knowledge Assistant documents into Pinecone"
+    )
 
-    parser.add_argument("--all", action="store_true", help="Ingest all curated sources")
-    parser.add_argument("--locators", action="store_true", help=f"Ingest locators XLSX into namespace '{NAMESPACE_LOCATORS}'")
-    parser.add_argument("--validation", action="store_true", help=f"Ingest validation checklist XLSX into namespace '{NAMESPACE_VALIDATION}'")
-    parser.add_argument("--pr-review", action="store_true", help=f"Ingest PR review DOCX into namespace '{NAMESPACE_PR_REVIEW}'")
-    parser.add_argument("--sop", action="store_true", help=f"Ingest SOP DOCX into namespace '{NAMESPACE_SOP}'")
-    parser.add_argument("--pdf", default=None, help="Optional: ingest a PDF at this path")
+    parser.add_argument("--batch-size", type=int, default=64)
+
+    parser.add_argument("--all", action="store_true", help="Ingest all document sources")
+    parser.add_argument("--locators", action="store_true")
+    parser.add_argument("--validation", action="store_true")
+    parser.add_argument("--pr-review", action="store_true")
+    parser.add_argument("--sop", action="store_true")
+    parser.add_argument("--company", action="store_true", help="Ingest company profile")
+    parser.add_argument("--pdf", default=None, help="Optional PDF path to ingest")
 
     parser.add_argument(
         "--locators-path",
-        default=str(Path("data") / "common_keywords_locators" / "SAF_Common_Keywords_Locators_v1.0.xlsx"),
+        default=str(Path("data/common_keywords_locators/SAF_Common_Keywords_Locators_v1.0.xlsx")),
     )
     parser.add_argument(
         "--validation-path",
-        default=str(Path("data") / "validation_checklist" / "Report Verification Checklist.xlsx"),
+        default=str(Path("data/validation_checklist/Report Verification Checklist.xlsx")),
     )
     parser.add_argument(
         "--pr-review-path",
-        default=str(Path("data") / "pr_review" / "PR Review Checklist.docx"),
+        default=str(Path("data/pr_review/PR Review Checklist.docx")),
     )
     parser.add_argument(
         "--sop-path",
-        default=str(Path("data") / "guidelines" / "Standard Operating procedure.docx"),
+        default=str(Path("data/guidelines/Standard Operating procedure.docx")),
+    )
+    parser.add_argument(
+        "--company-path",
+        default=str(Path("data/company/spotline_profile.docx")),
     )
 
     args = parser.parse_args(argv)
 
-    selected_any = any([args.all, args.locators, args.validation, args.pr_review, args.sop, bool(args.pdf)])
-    if not selected_any:
+    if not any([
+        args.all,
+        args.locators,
+        args.validation,
+        args.pr_review,
+        args.sop,
+        args.company,
+        args.pdf,
+    ]):
         args.all = True
 
     total = 0
@@ -108,37 +110,64 @@ def main(argv: list[str]) -> int:
     if args.all or args.locators:
         from backend.rag.ingestion.common_keyword_locator_ingest import ingest_common_keyword_locators
 
-        n = ingest_common_keyword_locators(args.locators_path, namespace=NAMESPACE_LOCATORS, batch_size=args.batch_size)
-        print(f"Locators upserted: {n} (namespace={NAMESPACE_LOCATORS})")
+        n = ingest_common_keyword_locators(
+            args.locators_path,
+            namespace=NAMESPACE_LOCATORS,
+            batch_size=args.batch_size,
+        )
+        print(f"Locators upserted: {n}")
         total += n
 
     if args.all or args.validation:
         from backend.rag.ingestion.validation_checklist_ingest import ingest_validation_checklist
 
-        n = ingest_validation_checklist(args.validation_path, namespace=NAMESPACE_VALIDATION, batch_size=args.batch_size)
-        print(f"Validation rules upserted: {n} (namespace={NAMESPACE_VALIDATION})")
+        n = ingest_validation_checklist(
+            args.validation_path,
+            namespace=NAMESPACE_VALIDATION,
+            batch_size=args.batch_size,
+        )
+        print(f"Validation rules upserted: {n}")
         total += n
 
     if args.all or args.pr_review:
         from backend.rag.ingestion.pr_review_ingest import ingest_pr_review
 
-        n = ingest_pr_review(args.pr_review_path, namespace=NAMESPACE_PR_REVIEW, batch_size=args.batch_size)
-        print(f"PR review items upserted: {n} (namespace={NAMESPACE_PR_REVIEW})")
+        n = ingest_pr_review(
+            args.pr_review_path,
+            namespace=NAMESPACE_PR_REVIEW,
+            batch_size=args.batch_size,
+        )
+        print(f"PR review items upserted: {n}")
         total += n
 
     if args.all or args.sop:
         from backend.rag.ingestion.sop_ingest import ingest_sop
 
-        n = ingest_sop(args.sop_path, namespace=NAMESPACE_SOP, batch_size=args.batch_size)
-        print(f"SOP steps upserted: {n} (namespace={NAMESPACE_SOP})")
+        n = ingest_sop(
+            args.sop_path,
+            namespace=NAMESPACE_SOP,
+            batch_size=args.batch_size,
+        )
+        print(f"SOP steps upserted: {n}")
+        total += n
+
+    if args.all or args.company:
+        from backend.rag.ingestion.sop_ingest import ingest_sop
+
+        n = ingest_sop(
+            args.company_path,
+            namespace=NAMESPACE_COMPANY,
+            batch_size=args.batch_size,
+        )
+        print(f"Company profile upserted: {n}")
         total += n
 
     if args.pdf:
         n = ingest_pdf(args.pdf, namespace="pdf", batch_size=args.batch_size)
-        print(f"PDF chunks upserted: {n} (namespace=pdf)")
+        print(f"PDF chunks upserted: {n}")
         total += n
 
-    print(f"Total upserted: {total}")
+    print(f"\nTotal vectors upserted: {total}")
     return 0
 
 
