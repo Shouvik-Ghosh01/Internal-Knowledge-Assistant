@@ -31,19 +31,44 @@ Each document type is ingested separately with **custom chunking logic** and sto
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
-* **Frontend**: Streamlit (user interaction)
-* **Backend**: FastAPI (API & orchestration)
-* **Agent**: ReAct-style controller (tool-aware)
-* **Retriever**: Vector similarity search (Pinecone)
-* **LLM**: OpenAI (answer generation only)
-* **Safety**:
+The Internal Knowledge Assistant is built using an agent-based Retrieval Augmented Generation (RAG) architecture.  
+The system is designed to ensure that all responses are grounded strictly in approved internal documents, with multiple layers of validation and safety.
 
-  * Input validation
-  * Prompt injection detection
-  * Output filtering
-* **Storage**: Pinecone Vector Database
+### High-Level Architecture
+
+![Internal Knowledge Assistant Architecture](docs/architecture.png)
+
+### Architectural Flow
+
+1. **User Interface (Streamlit)**  
+   Users interact with the system through a lightweight Streamlit frontend, submitting natural language queries.
+
+2. **API Layer (FastAPI)**  
+   The backend exposes a REST endpoint that receives user queries and orchestrates the request lifecycle.
+
+3. **Input Guardrails**  
+   Incoming queries are validated for scope, length, and safety. Prompt-injection patterns and out-of-scope requests are rejected early.
+
+4. **Agent Controller**  
+   A single ReAct-style agent acts as the orchestration layer. The agent determines whether retrieval is required and selects the appropriate tool.
+
+5. **Retriever Module**  
+   The retriever embeds the query and performs similarity search against a Pinecone vector database.  
+   Multiple namespaces are queried to support different document types (SOPs, PR reviews, validation rules, locators).
+
+6. **Vector Database (Pinecone)**  
+   All internal documents are stored as embeddings with structured metadata, enabling efficient and scalable semantic retrieval.
+
+7. **LLM (Answer Generation)**  
+   The language model generates a response strictly using the retrieved context. External knowledge is explicitly disallowed.
+
+8. **Output Guardrails**  
+   Generated responses are validated for safety and completeness. If sufficient context is not available, the system returns a controlled fallback response.
+
+9. **Final Response**  
+   The user receives a grounded answer along with document-level source attribution.
 
 ---
 
