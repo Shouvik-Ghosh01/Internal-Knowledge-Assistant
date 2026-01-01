@@ -4,10 +4,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # -------------------------------------------------
-# LLM CONFIGURATION (DeepSeek - OpenAI compatible)
+# LLM CONFIGURATION
 # -------------------------------------------------
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-DEEPSEEK_API_BASE = "https://openrouter.ai/api/v1"
 LLM_MODEL = "gpt-5-nano-2025-08-07"
 
 # -------------------------------------------------
