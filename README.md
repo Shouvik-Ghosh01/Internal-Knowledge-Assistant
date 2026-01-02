@@ -140,7 +140,7 @@ Fill in:
 ### 4. Ingest documents
 
 ```bash
-python scripts/ingest_all.py
+python scripts/ingest_docs.py
 ```
 
 ---
